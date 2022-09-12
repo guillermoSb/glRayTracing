@@ -14,6 +14,9 @@ func Test_can_create_color(t *testing.T) {
 	// Assert
 	assert.NotNil(t,c)
 	assert.Nil(t,err)
+	assert.Equal(t,1.0,c.Red())
+	assert.Equal(t,0.0,c.Green())
+	assert.Equal(t,0.0,c.Blue())
 }
 
 func Test_color_only_accepts_values_between_1_and_0(t *testing.T) {
