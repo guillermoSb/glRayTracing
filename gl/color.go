@@ -35,5 +35,12 @@ func (c *color) Green() float64 {
 }
 // Obtain the blue value
 func (c *color) Blue() float64 {
-	return c.g
+	return c.b
+}
+
+func (c * color) Bytes()[]byte {
+	red := uint8(c.Red() * 255)
+	green := uint8(c.Green() * 255)
+	blue := uint8(c.Blue() * 255)
+	return []byte{blue, green, red}
 }
