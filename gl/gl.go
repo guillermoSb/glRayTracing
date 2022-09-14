@@ -3,13 +3,17 @@ package gl
 import (
 	"guillermoSb/glRayTracing/numg"
 	"log"
+	"math"
 	"os"
 )
-
 type renderer struct {
 	width, height uint
 	pixels [][]color
+	scene []figure
 	background texture
+	camPosition numg.V3
+	nearPlane, aspectRatio,fov float64
+
 }
 
 // Creates a new renderer and sends the reference
@@ -27,6 +31,16 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 		}
 		r.pixels = append(r.pixels, col)	// append the column to the pixels
 	}
+	// Create an empty array of figures
+	r.scene = []figure{}
+	// Camera position
+	r.camPosition = numg.V3{0,0,0}
+	// NearPlane 
+	r.nearPlane = 0.1
+	// AspectRatio
+	r.aspectRatio = float64(width) / float64(height)
+	// FOV
+	r.fov = 60
 	// Load the background
 	if background != "" {
 		t, errT := NewTexture(background)
@@ -43,6 +57,12 @@ func (r *renderer) Pixels() [][]color {
 	return r.pixels
 }
 
+// Append an item to the scene
+func (r *renderer) AddToScene(figure figure) {
+	r.scene = append(r.scene, figure)
+}
+
+// Draw the background
 func (r *renderer) GLDrawBackground() {
 	for x := 0; x < int(r.width); x++ {
 		for y := 0; y < int(r.height); y++ {
@@ -55,10 +75,30 @@ func (r *renderer) GLDrawBackground() {
 	}
 }
 
+// Does the render of the scene with Ray Tracing
+func (r *renderer) GLRender() {
+	for x := 0; x < int(r.width); x++ {
+		for y := 0; y < int(r.height); y++ {
+			// Create the NDC Coordinates
+			px := ((float64(x)/float64(r.width)) * 2) - 1.0
+			py := ((float64(y)/float64(r.height)) * 2) - 1.0
+			// Proyecion
+			t := math.Tan((r.fov * math.Pi)/360) * r.nearPlane
+			r := t * r.aspectRatio
+			
+			// ? Por que se multiplica
+			px *= r
+			py *= t
+			// Direction of the ray normalized
+			direction := numg.NormalizeV3(numg.V3{px, py, -1})
+			
+		}
+	}
+}
+
 // Draw a point on the screen
 func (r *renderer) GLPoint(point numg.V2, clr color) {
 	// Check tht the point is within the screen bounds
-	
 	if int(point.X) < 0 || 
 	int(point.X) >= int(r.width) || 
 	int(point.Y) < 0 || 
@@ -105,4 +145,14 @@ func (r *renderer) GlFinish(fileName string) {
 		}
 	}
 }
+
+// func (r * renderer) GLViewMatrix(translate, rotate numg.V3) {
+// 	camMatrix := glCreateObjectMatrix(translate, rotate, V3{1,1,1})
+// 	viewMatrix, err := numg.InverseOfMatrix(camMatrix)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	r.viewMatrix = viewMatrix
+
+// }
 // TODO: Be able to load images and use any aspect ratio

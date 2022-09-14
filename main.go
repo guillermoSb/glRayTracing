@@ -4,13 +4,14 @@ package main
 import (
 	"fmt"
 	"guillermoSb/glRayTracing/gl"
+	"guillermoSb/glRayTracing/numg"
 )
 
 func main() {
 	fmt.Println("Hello from RTX program")
-	r, _ := gl.NewRenderer(2040, 1024, "sunshine-bg.bmp")
-	r.GLDrawBackground()
-	
+	r, _ := gl.NewRenderer(256, 256, "")
+	sphere := gl.NewSphere(numg.V3{0,0,0}, 1.4)
+	r.AddToScene(sphere)
 	
 	r.GlFinish("output.bmp")
 }
