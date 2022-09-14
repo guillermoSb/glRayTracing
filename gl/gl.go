@@ -9,33 +9,64 @@ import (
 type renderer struct {
 	width, height uint
 	pixels [][]color
+	background texture
 }
 
 // Creates a new renderer and sends the reference
 // - width: width of the renderer
 // - height: height of the renderer
-func NewRenderer(width, height uint)(*renderer, error) {
+// - background: name of the background
+func NewRenderer(width, height uint, background string)(*renderer, error) {
 	r := renderer{width: width, height: height, pixels: [][]color{}} 
 	// Create the pixel array
 	for x := 0; x < int(width); x++ {
 		col := []color{}
 		for y := 0; y < int(height); y++ {
-			clearClr, _ := NewColor(0,0,0)	// Use black as the background color
+			clearClr, _ := NewColor(0.2,0.2,0.2)	// Use black as the background color
 			col = append(col, *clearClr)	// append the color to the column
 		}
 		r.pixels = append(r.pixels, col)	// append the column to the pixels
 	}
+	// Load the background
+	if background != "" {
+		t, errT := NewTexture(background)
+		if errT != nil {
+			return nil, errT
+		}
+		r.background = *t
+	}
 	return &r, nil
+}
+
+// Get the pixel array
+func (r *renderer) Pixels() [][]color {
+	return r.pixels
+}
+
+func (r *renderer) GLDrawBackground() {
+	for x := 0; x < int(r.width); x++ {
+		for y := 0; y < int(r.height); y++ {
+			ux := (float32(x)/float32(r.width))	// value for x 0 -1
+			uy := (float32(y)/float32(r.height))	// value for y 0 -1
+			texX := int(ux * float32(r.background.width))	
+			texY := int(uy * float32(r.background.height))
+			r.GLPoint(numg.V2{X:float64(x),Y:float64(y)}, r.background.pixels[texY][texX])
+		}	
+	}
 }
 
 // Draw a point on the screen
 func (r *renderer) GLPoint(point numg.V2, clr color) {
 	// Check tht the point is within the screen bounds
-	if point.X < 0 || point.X >= float64(r.width) || point.Y < 0 || point.Y >= float64(r.height){
+	
+	if int(point.X) < 0 || 
+	int(point.X) >= int(r.width) || 
+	int(point.Y) < 0 || 
+	int(point.Y) >= int(r.height) {
 		return
-	}
+	} 
 	// Set the color on the pixel
-	r.pixels[int(point.Y)][int(point.X)] = clr
+	r.pixels[int(point.X)][int(point.Y)] = clr
 }
 
 // Create the renderer with the pixel array
@@ -68,9 +99,9 @@ func (r *renderer) GlFinish(fileName string) {
 	f.Write([]byte{0,0,0,0})
 	f.Write([]byte{0,0,0,0})
 	// Pixel Data
-	for i := 0; i < int(r.width); i++ {
-		for j := 0; j < int(r.height); j++ {
-			f.Write(r.pixels[i][j].Bytes())
+	for i := 0; i < int(r.height); i++ {
+		for j := 0; j < int(r.width); j++ {
+			f.Write(r.pixels[j][i].Bytes())
 		}
 	}
 }
