@@ -20,6 +20,12 @@ type V3 struct {
 }
 
 
+// Gets the magnitude of the vector
+func (v3 *V3) Magnitude() float64 {
+	return math.Sqrt(math.Pow(v3.X, 2) + math.Pow(v3.Y, 2) + math.Pow(v3.Z, 2))
+}
+
+
 // Normalizes a 3D vector
 // - A: the vector to normalize
 func NormalizeV3(A V3) V3 {
@@ -35,4 +41,9 @@ func Subtract(A,B V3) V3{
 	newV.Y = A.Y - B.Y
 	newV.Z = A.Z - B.Z
 	return newV
+}
+
+// Obtain the dot product of two vectors
+func V3DotProduct(A V3, B V3) float64 {
+	return A.X * B.X + A.Y * B.Y + A.Z * B.Z
 }

@@ -99,7 +99,8 @@ func (r *renderer) GLRender() {
 			px *= ri
 			py *= t
 			// Direction of the ray normalized
-			direction := numg.NormalizeV3(numg.V3{px, py, -1})
+			// ? Por que la direccion tiene en z - el nearPlane
+			direction := numg.NormalizeV3(numg.V3{px, py, -r.nearPlane})
 			// Cast a ray on that direction
 			rayColor := r.GLCastRay(r.camPosition, direction)	
 			if rayColor != nil {

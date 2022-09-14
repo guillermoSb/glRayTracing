@@ -10,7 +10,7 @@ import (
 func main() {
 	fmt.Println("Hello from RTX program")
 	r, _ := gl.NewRenderer(256, 256, "")
-	sphere := gl.NewSphere(numg.V3{0,0,0}, 1.4)
+	sphere := gl.NewSphere(numg.V3{0,0,-10}, 2)
 	r.AddToScene(sphere)
 	r.GLRender()
 	r.GlFinish("output.bmp")
