@@ -13,6 +13,7 @@ type renderer struct {
 	background texture
 	camPosition numg.V3
 	nearPlane, aspectRatio,fov float64
+	currentColor color
 
 }
 
@@ -49,7 +50,15 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 		}
 		r.background = *t
 	}
+	// Default color is white
+	r.currentColor = color{1,1,1}
+	// Return the renderer
 	return &r, nil
+}
+
+// Change current color
+func(r *renderer) ChangeColor(clr color) {
+	r.currentColor = clr
 }
 
 // Get the pixel array
@@ -84,16 +93,29 @@ func (r *renderer) GLRender() {
 			py := ((float64(y)/float64(r.height)) * 2) - 1.0
 			// Proyecion
 			t := math.Tan((r.fov * math.Pi)/360) * r.nearPlane
-			r := t * r.aspectRatio
+			ri := t * r.aspectRatio
 			
 			// ? Por que se multiplica
-			px *= r
+			px *= ri
 			py *= t
 			// Direction of the ray normalized
 			direction := numg.NormalizeV3(numg.V3{px, py, -1})
-			
+			// Cast a ray on that direction
+			rayColor := r.GLCastRay(r.camPosition, direction)	
+			if rayColor != nil {
+				r.GLPoint(numg.V2{float64(x),float64(y)},*rayColor)
+			}
 		}
 	}
+}
+
+func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
+	for _, v := range r.scene {
+		if v.rayIntersect(origin, direction) {
+			return &r.currentColor
+		}
+	}
+	return nil
 }
 
 // Draw a point on the screen

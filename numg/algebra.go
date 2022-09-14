@@ -27,3 +27,12 @@ func NormalizeV3(A V3) V3 {
 	newA := V3{A.X/m,A.Y/m,A.Z/m}
 	return newA
 }
+
+// Subtracts two vectors
+func Subtract(A,B V3) V3{
+	newV := V3{0,0,0}
+	newV.X = A.X - B.X
+	newV.Y = A.Y - B.Y
+	newV.Z = A.Z - B.Z
+	return newV
+}
