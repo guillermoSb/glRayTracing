@@ -43,6 +43,24 @@ func Subtract(A,B V3) V3{
 	return newV
 }
 
+// Adds two vectors
+func Add(A,B V3) V3{
+	newV := V3{0,0,0}
+	newV.X = A.X + B.X
+	newV.Y = A.Y + B.Y
+	newV.Z = A.Z + B.Z
+	return newV
+}
+
+// Multiply a vector by a scalar
+func MultiplyVectorWithConstant(A V3, c float64) V3{
+	newV := V3{0,0,0}
+	newV.X = A.X * c
+	newV.Y = A.Y * c
+	newV.Z = A.Z * c
+	return newV
+}
+
 // Obtain the dot product of two vectors
 func V3DotProduct(A V3, B V3) float64 {
 	return A.X * B.X + A.Y * B.Y + A.Z * B.Z

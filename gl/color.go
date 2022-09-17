@@ -44,3 +44,11 @@ func (c * color) Bytes()[]byte {
 	blue := uint8(c.Blue() * 255)
 	return []byte{blue, green, red}
 }
+
+func White() color {
+	return color{1,1,1}
+}
+
+func Black() color {
+	return color{0,0,0}
+}

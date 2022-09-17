@@ -10,6 +10,7 @@ type renderer struct {
 	width, height uint
 	pixels [][]color
 	scene []figure
+	lights []light
 	background texture
 	camPosition numg.V3
 	nearPlane, aspectRatio,fov float64
@@ -27,7 +28,7 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 	for x := 0; x < int(width); x++ {
 		col := []color{}
 		for y := 0; y < int(height); y++ {
-			clearClr, _ := NewColor(0.2,0.2,0.2)	// Use black as the background color
+			clearClr, _ := NewColor(0,0,0)	// Use black as the background color
 			col = append(col, *clearClr)	// append the color to the column
 		}
 		r.pixels = append(r.pixels, col)	// append the column to the pixels
@@ -35,7 +36,7 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 	// Create an empty array of figures
 	r.scene = []figure{}
 	// Camera position
-	r.camPosition = numg.V3{0,0,0}
+	r.camPosition = numg.V3{X: 0,Y: 0,Z: 0}
 	// NearPlane 
 	r.nearPlane = 0.1
 	// AspectRatio
@@ -71,6 +72,10 @@ func (r *renderer) AddToScene(figure figure) {
 	r.scene = append(r.scene, figure)
 }
 
+func (r *renderer) AddLightToScene(light light) {
+	r.lights = append(r.lights, light)
+}
+
 // Draw the background
 func (r *renderer) GLDrawBackground() {
 	for x := 0; x < int(r.width); x++ {
@@ -100,21 +105,84 @@ func (r *renderer) GLRender() {
 			py *= t
 			// Direction of the ray normalized
 			// ? Por que la direccion tiene en z - el nearPlane
-			direction := numg.NormalizeV3(numg.V3{px, py, -r.nearPlane})
+			direction := numg.NormalizeV3(numg.V3{X: px, Y: py,Z: -r.nearPlane})
 			// Cast a ray on that direction
 			rayColor := r.GLCastRay(r.camPosition, direction)	
 			if rayColor != nil {
-				r.GLPoint(numg.V2{float64(x),float64(y)},*rayColor)
+				r.GLPoint(numg.V2{X: float64(x),Y: float64(y)}, *rayColor)
 			}
 		}
 	}
 }
 
-func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
-	for _, v := range r.scene {
-		if v.rayIntersect(origin, direction) {
-			return &r.currentColor
+func (r *renderer) sceneIntersect(origin, direction numg.V3, sceneObject *struct{material}) *intersect {
+	var intersect *intersect = nil
+	depth := math.Inf(1)
+	for _, object := range r.scene {
+		hit := object.rayIntersect(origin, direction)
+		if hit != nil {
+			if &(hit.obj) != sceneObject {
+				if sceneObject != nil && hit.obj == *sceneObject {
+					continue
+				}
+				if hit.distance < depth {
+					intersect = hit
+					depth = hit.distance
+				}
+			}
 		}
+	}
+	return intersect
+}
+
+func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
+	var intersect *intersect = r.sceneIntersect(origin, direction, nil)
+	if intersect != nil {
+		finalColor := Black()
+		objectColor := intersect.obj.material.diffuse
+
+		for _, light := range r.lights {
+			if light.getLightType() == DIR_TYPE {
+				dirLight := numg.MultiplyVectorWithConstant(*light.getDirection(), -1)
+				intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
+				intensity = math.Max(0, intensity)
+				diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
+
+				// Shadows
+				shadowIntensity := 0.0
+				shadowIntersect := r.sceneIntersect(intersect.point, dirLight, &intersect.obj)
+				if shadowIntersect != nil {
+					shadowIntensity = 1
+				}
+				finalColor.r += diffuseColor.r * light.getIntensity()
+				finalColor.g += diffuseColor.g * light.getIntensity()
+				finalColor.b += diffuseColor.b * light.getIntensity()
+
+				finalColor.r *= 1 - shadowIntensity
+				finalColor.g *= 1 - shadowIntensity
+				finalColor.b *= 1 - shadowIntensity
+
+			} else if light.getLightType() == AMBIENT_TYPE {
+				ambientLightColor := light.getColor()
+				ambientLightColor.r = ambientLightColor.r * light.getIntensity()
+				ambientLightColor.g = ambientLightColor.g * light.getIntensity()
+				ambientLightColor.b = ambientLightColor.b * light.getIntensity()
+
+				finalColor.r += ambientLightColor.r
+				finalColor.g += ambientLightColor.g
+				finalColor.b += ambientLightColor.b
+			}
+		}
+
+		finalColor.r *= objectColor.r 
+		finalColor.g *= objectColor.g
+		finalColor.b *= objectColor.b
+
+		finalColor.r = math.Min(1, finalColor.r)
+		finalColor.g = math.Min(1, finalColor.g)
+		finalColor.b = math.Min(1, finalColor.b)
+		 
+		return &(finalColor)
 	}
 	return nil
 }
