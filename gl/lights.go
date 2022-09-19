@@ -8,6 +8,7 @@ type light interface {
 	getColor() color
 	getLightType() int
 	getDirection() *numg.V3
+	getOrigin() * numg.V3
 }
 
 
@@ -20,6 +21,7 @@ type dirLight struct {
 
 const DIR_TYPE = 0
 const AMBIENT_TYPE = 1
+const POINT_TYPE = 3
 
 // Creates a new Directional Light object
 func NewDirLight(direction numg.V3, color color, intensity float64) *dirLight {
@@ -43,6 +45,10 @@ func (l *dirLight) getLightType() int {
 
 func (l *dirLight) getDirection() *numg.V3 {
 	return &l.direction
+}
+
+func (l *dirLight) getOrigin() *numg.V3 {
+	return nil
 }
 
 
@@ -74,4 +80,42 @@ func (l *ambientLight) getLightType() int {
 
 func (l *ambientLight) getDirection() *numg.V3 {
 	return nil
+}
+
+func (l *ambientLight) getOrigin() *numg.V3 {
+	return nil
+}
+
+
+type pointLight struct {
+	color color
+	intensity float64
+	lightType int
+	origin numg.V3
+}
+
+// Creates a new Point Light object
+func NewPointLight(color color, intensity float64, origin numg.V3) *pointLight {
+	pL := pointLight{color: color, intensity: intensity, lightType: POINT_TYPE, origin: origin}
+	return &pL
+}
+
+
+func (l *pointLight) getIntensity() float64 {
+	return l.intensity
+}
+
+func (l *pointLight) getColor() color {
+	return l.color
+}
+
+func (l *pointLight) getLightType() int {
+	return l.lightType
+}
+
+func (l *pointLight) getDirection() *numg.V3 {
+	return nil
+}
+func (l *pointLight) getOrigin() *numg.V3 {
+	return &l.origin
 }

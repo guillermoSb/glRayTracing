@@ -184,7 +184,53 @@ func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
 				finalColor.r += ambientLightColor.r
 				finalColor.g += ambientLightColor.g
 				finalColor.b += ambientLightColor.b
-			} 
+			} else if light.getLightType() == POINT_TYPE {
+				// Calculate the light direction
+				lightDir := numg.Subtract(*light.getOrigin(), intersect.point)
+				lightDir = numg.NormalizeV3(lightDir)
+				// Calculate the intensity of the light
+				intensity := numg.V3DotProduct(numg.NormalizeV3(intersect.point), lightDir)
+				intensity = math.Max(0, intensity)
+				// Calculate the color
+				diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
+				// Shadows
+				shadowIntensity := 0.0
+				shadowIntersect := r.sceneIntersect(intersect.point, lightDir, &intersect.obj)
+				if shadowIntersect != nil {
+					shadowIntensity = 1
+				}
+				// Specularity
+			
+				rS := numg.ReflectionVector(lightDir, intersect.normal)
+
+				viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
+				specIntensity := numg.V3DotProduct(rS, viewDir)
+				specIntensity = math.Max(0, specIntensity)
+				specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
+				specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
+				
+				diffuseColor.r += specColor.r
+				diffuseColor.g += specColor.g
+				diffuseColor.b += specColor.b
+				
+				// Attenuation
+				distanceVector := numg.Subtract(intersect.point, *light.getOrigin())
+				
+				d := math.Abs(distanceVector.Magnitude())
+				a := 1.0	// Constant attenuation
+				b := 1.0	// Linear attenuation
+				c := 0.0	// Quadratic attenuatio
+
+				attenuation := 1.0 / (a+b*d+c*math.Pow(d,2))
+
+				finalColor.r += diffuseColor.r * light.getIntensity() * attenuation
+				finalColor.g += diffuseColor.g * light.getIntensity() * attenuation
+				finalColor.b += diffuseColor.b * light.getIntensity() * attenuation
+
+				finalColor.r *= 1 - shadowIntensity
+				finalColor.g *= 1 - shadowIntensity
+				finalColor.b *= 1 - shadowIntensity
+			}
 		}
 
 		finalColor.r *= objectColor.r 
