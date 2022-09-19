@@ -34,6 +34,7 @@ func NormalizeV3(A V3) V3 {
 	return newA
 }
 
+
 // Subtracts two vectors
 func Subtract(A,B V3) V3{
 	newV := V3{0,0,0}
@@ -64,4 +65,12 @@ func MultiplyVectorWithConstant(A V3, c float64) V3{
 // Obtain the dot product of two vectors
 func V3DotProduct(A V3, B V3) float64 {
 	return A.X * B.X + A.Y * B.Y + A.Z * B.Z
+}
+
+
+func ReflectionVector(D, N V3) V3 {
+	reflection :=  MultiplyVectorWithConstant(N, 2 * V3DotProduct(N, D))
+	reflection = Subtract(reflection, D)
+	reflection = NormalizeV3(reflection)
+	return reflection
 }

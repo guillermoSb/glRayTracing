@@ -91,14 +91,14 @@ func (r *renderer) GLDrawBackground() {
 
 // Does the render of the scene with Ray Tracing
 func (r *renderer) GLRender() {
+	// Proyecion
+	t := math.Tan((r.fov * math.Pi)/360) * r.nearPlane
+	ri := t * r.aspectRatio
 	for x := 0; x < int(r.width); x++ {
 		for y := 0; y < int(r.height); y++ {
 			// Create the NDC Coordinates
 			px := ((float64(x)/float64(r.width)) * 2) - 1.0
 			py := ((float64(y)/float64(r.height)) * 2) - 1.0
-			// Proyecion
-			t := math.Tan((r.fov * math.Pi)/360) * r.nearPlane
-			ri := t * r.aspectRatio
 			
 			// ? Por que se multiplica
 			px *= ri
@@ -147,13 +147,26 @@ func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
 				intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
 				intensity = math.Max(0, intensity)
 				diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
-
 				// Shadows
 				shadowIntensity := 0.0
 				shadowIntersect := r.sceneIntersect(intersect.point, dirLight, &intersect.obj)
 				if shadowIntersect != nil {
 					shadowIntensity = 1
 				}
+				// Specularity
+			
+				rS := numg.ReflectionVector(dirLight, intersect.normal)
+
+				viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
+				specIntensity := numg.V3DotProduct(rS, viewDir)
+				specIntensity = math.Max(0, specIntensity)
+				specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
+				specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
+				
+				diffuseColor.r += specColor.r
+				diffuseColor.g += specColor.g
+				diffuseColor.b += specColor.b
+
 				finalColor.r += diffuseColor.r * light.getIntensity()
 				finalColor.g += diffuseColor.g * light.getIntensity()
 				finalColor.b += diffuseColor.b * light.getIntensity()
@@ -171,7 +184,7 @@ func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
 				finalColor.r += ambientLightColor.r
 				finalColor.g += ambientLightColor.g
 				finalColor.b += ambientLightColor.b
-			}
+			} 
 		}
 
 		finalColor.r *= objectColor.r 
