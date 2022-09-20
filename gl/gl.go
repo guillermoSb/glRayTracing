@@ -18,6 +18,8 @@ type renderer struct {
 
 }
 
+const MAX_RECURSION_DEPTH = 2
+
 // Creates a new renderer and sends the reference
 // - width: width of the renderer
 // - height: height of the renderer
@@ -28,7 +30,7 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 	for x := 0; x < int(width); x++ {
 		col := []color{}
 		for y := 0; y < int(height); y++ {
-			clearClr, _ := NewColor(0,0,0)	// Use black as the background color
+			clearClr, _ := NewColor(0.6,0.6,0.6)	// Use black as the background color
 			col = append(col, *clearClr)	// append the color to the column
 		}
 		r.pixels = append(r.pixels, col)	// append the column to the pixels
@@ -107,7 +109,7 @@ func (r *renderer) GLRender() {
 			// ? Por que la direccion tiene en z - el nearPlane
 			direction := numg.NormalizeV3(numg.V3{X: px, Y: py,Z: -r.nearPlane})
 			// Cast a ray on that direction
-			rayColor := r.GLCastRay(r.camPosition, direction)	
+			rayColor := r.GLCastRay(r.camPosition, direction, nil, 0)	
 			if rayColor != nil {
 				r.GLPoint(numg.V2{X: float64(x),Y: float64(y)}, *rayColor)
 			}
@@ -129,117 +131,129 @@ func (r *renderer) sceneIntersect(origin, direction numg.V3, sceneObject *struct
 					intersect = hit
 					depth = hit.distance
 				}
-			}
+			} 
 		}
 	}
 	return intersect
 }
 
-func (r *renderer) GLCastRay(origin, direction numg.V3) *color {
-	var intersect *intersect = r.sceneIntersect(origin, direction, nil)
-	if intersect != nil {
+func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{material}, recursion int) *color {
+	var intersect *intersect = r.sceneIntersect(origin, direction, sceneObject)
+	if intersect != nil && recursion < MAX_RECURSION_DEPTH {
 		finalColor := Black()
 		objectColor := intersect.obj.material.diffuse
-
-		for _, light := range r.lights {
-			if light.getLightType() == DIR_TYPE {
-				dirLight := numg.MultiplyVectorWithConstant(*light.getDirection(), -1)
-				intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
-				intensity = math.Max(0, intensity)
-				diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
-				// Shadows
-				shadowIntensity := 0.0
-				shadowIntersect := r.sceneIntersect(intersect.point, dirLight, &intersect.obj)
-				if shadowIntersect != nil {
-					shadowIntensity = 1
+		if intersect.obj.material.matType == OPAQUE {
+			for _, light := range r.lights {
+				if light.getLightType() == DIR_TYPE {
+					dirLight := numg.MultiplyVectorWithConstant(*light.getDirection(), -1)
+					intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
+					intensity = math.Max(0, intensity)
+					diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
+					// Shadows
+					shadowIntensity := 0.0
+					shadowIntersect := r.sceneIntersect(intersect.point, dirLight, &intersect.obj)
+					if shadowIntersect != nil {
+						shadowIntensity = 1
+					}
+					// Specularity
+				
+					rS := numg.ReflectionVector(dirLight, intersect.normal)
+	
+					viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
+					specIntensity := numg.V3DotProduct(rS, viewDir)
+					specIntensity = math.Max(0, specIntensity)
+					specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
+					specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
+					
+					diffuseColor.r += specColor.r
+					diffuseColor.g += specColor.g
+					diffuseColor.b += specColor.b
+	
+					finalColor.r += diffuseColor.r * light.getIntensity()
+					finalColor.g += diffuseColor.g * light.getIntensity()
+					finalColor.b += diffuseColor.b * light.getIntensity()
+	
+					finalColor.r *= 1 - shadowIntensity
+					finalColor.g *= 1 - shadowIntensity
+					finalColor.b *= 1 - shadowIntensity
+	
+				} else if light.getLightType() == AMBIENT_TYPE {
+					ambientLightColor := light.getColor()
+					ambientLightColor.r = ambientLightColor.r * light.getIntensity()
+					ambientLightColor.g = ambientLightColor.g * light.getIntensity()
+					ambientLightColor.b = ambientLightColor.b * light.getIntensity()
+	
+					finalColor.r += ambientLightColor.r
+					finalColor.g += ambientLightColor.g
+					finalColor.b += ambientLightColor.b
+				} else if light.getLightType() == POINT_TYPE {
+					// Calculate the light direction
+					lightDir := numg.Subtract(*light.getOrigin(), intersect.point)
+					lightDir = numg.NormalizeV3(lightDir)
+					// Calculate the intensity of the light
+					intensity := numg.V3DotProduct(numg.NormalizeV3(intersect.point), lightDir)
+					intensity = math.Max(0, intensity)
+					// Calculate the color
+					diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
+					// Shadows
+					shadowIntensity := 0.0
+					shadowIntersect := r.sceneIntersect(intersect.point, lightDir, &intersect.obj)
+					if shadowIntersect != nil {
+						shadowIntensity = 1
+					}
+					// Specularity
+				
+					rS := numg.ReflectionVector(lightDir, intersect.normal)
+	
+					viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
+					specIntensity := numg.V3DotProduct(rS, viewDir)
+					specIntensity = math.Max(0, specIntensity)
+					specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
+					specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
+					
+					diffuseColor.r += specColor.r
+					diffuseColor.g += specColor.g
+					diffuseColor.b += specColor.b
+					
+					// Attenuation
+					distanceVector := numg.Subtract(intersect.point, *light.getOrigin())
+					
+					d := math.Abs(distanceVector.Magnitude())
+					a := 1.0	// Constant attenuation
+					b := 1.0	// Linear attenuation
+					c := 0.0	// Quadratic attenuatio
+	
+					attenuation := 1.0 / (a+b*d+c*math.Pow(d,2))
+	
+					finalColor.r += diffuseColor.r * light.getIntensity() * attenuation
+					finalColor.g += diffuseColor.g * light.getIntensity() * attenuation
+					finalColor.b += diffuseColor.b * light.getIntensity() * attenuation
+	
+					finalColor.r *= 1 - shadowIntensity
+					finalColor.g *= 1 - shadowIntensity
+					finalColor.b *= 1 - shadowIntensity
 				}
-				// Specularity
-			
-				rS := numg.ReflectionVector(dirLight, intersect.normal)
-
-				viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
-				specIntensity := numg.V3DotProduct(rS, viewDir)
-				specIntensity = math.Max(0, specIntensity)
-				specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
-				specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
-				
-				diffuseColor.r += specColor.r
-				diffuseColor.g += specColor.g
-				diffuseColor.b += specColor.b
-
-				finalColor.r += diffuseColor.r * light.getIntensity()
-				finalColor.g += diffuseColor.g * light.getIntensity()
-				finalColor.b += diffuseColor.b * light.getIntensity()
-
-				finalColor.r *= 1 - shadowIntensity
-				finalColor.g *= 1 - shadowIntensity
-				finalColor.b *= 1 - shadowIntensity
-
-			} else if light.getLightType() == AMBIENT_TYPE {
-				ambientLightColor := light.getColor()
-				ambientLightColor.r = ambientLightColor.r * light.getIntensity()
-				ambientLightColor.g = ambientLightColor.g * light.getIntensity()
-				ambientLightColor.b = ambientLightColor.b * light.getIntensity()
-
-				finalColor.r += ambientLightColor.r
-				finalColor.g += ambientLightColor.g
-				finalColor.b += ambientLightColor.b
-			} else if light.getLightType() == POINT_TYPE {
-				// Calculate the light direction
-				lightDir := numg.Subtract(*light.getOrigin(), intersect.point)
-				lightDir = numg.NormalizeV3(lightDir)
-				// Calculate the intensity of the light
-				intensity := numg.V3DotProduct(numg.NormalizeV3(intersect.point), lightDir)
-				intensity = math.Max(0, intensity)
-				// Calculate the color
-				diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
-				// Shadows
-				shadowIntensity := 0.0
-				shadowIntersect := r.sceneIntersect(intersect.point, lightDir, &intersect.obj)
-				if shadowIntersect != nil {
-					shadowIntensity = 1
+			}	
+			finalColor.r *= objectColor.r 
+			finalColor.g *= objectColor.g
+			finalColor.b *= objectColor.b
+			} else if intersect.obj.material.matType == REFLECTIVE {
+				// reflection vector
+				reflection := numg.ReflectionVector(numg.MultiplyVectorWithConstant(direction, -1.0), numg.MultiplyVectorWithConstant(intersect.normal, 1))	
+				reflectColor := r.GLCastRay(intersect.point, reflection, &intersect.obj, recursion + 1)
+				if reflectColor != nil {
+					finalColor.r = reflectColor.r
+					finalColor.g = reflectColor.g
+					finalColor.b = reflectColor.b
+				} else {
+					finalColor = objectColor
 				}
-				// Specularity
-			
-				rS := numg.ReflectionVector(lightDir, intersect.normal)
-
-				viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
-				specIntensity := numg.V3DotProduct(rS, viewDir)
-				specIntensity = math.Max(0, specIntensity)
-				specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
-				specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
-				
-				diffuseColor.r += specColor.r
-				diffuseColor.g += specColor.g
-				diffuseColor.b += specColor.b
-				
-				// Attenuation
-				distanceVector := numg.Subtract(intersect.point, *light.getOrigin())
-				
-				d := math.Abs(distanceVector.Magnitude())
-				a := 1.0	// Constant attenuation
-				b := 1.0	// Linear attenuation
-				c := 0.0	// Quadratic attenuatio
-
-				attenuation := 1.0 / (a+b*d+c*math.Pow(d,2))
-
-				finalColor.r += diffuseColor.r * light.getIntensity() * attenuation
-				finalColor.g += diffuseColor.g * light.getIntensity() * attenuation
-				finalColor.b += diffuseColor.b * light.getIntensity() * attenuation
-
-				finalColor.r *= 1 - shadowIntensity
-				finalColor.g *= 1 - shadowIntensity
-				finalColor.b *= 1 - shadowIntensity
 			}
-		}
-
-		finalColor.r *= objectColor.r 
-		finalColor.g *= objectColor.g
-		finalColor.b *= objectColor.b
-
-		finalColor.r = math.Min(1, finalColor.r)
-		finalColor.g = math.Min(1, finalColor.g)
-		finalColor.b = math.Min(1, finalColor.b)
+		
+	
+			finalColor.r = math.Min(1, finalColor.r)
+			finalColor.g = math.Min(1, finalColor.g)
+			finalColor.b = math.Min(1, finalColor.b)
 		 
 		return &(finalColor)
 	}
