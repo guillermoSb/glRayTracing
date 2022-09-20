@@ -9,7 +9,11 @@ import (
 
 func main() {
 	fmt.Println("Hello from RTX program")
-	r, _ := gl.NewRenderer(1024, 1024, "")
+	r, _ := gl.NewRenderer(1024, 1024, "hdr.bmp")
+
+	// // Env map
+	envMap, _ := gl.NewTexture("parking.bmp")
+	r.SetEnvMap(envMap)
 	// red, _ := gl.NewColor(1,0,0)
 	green, _ := gl.NewColor(0,1,0)
 	semiWhite, _ := gl.NewColor(0.4,0.4,0.4)

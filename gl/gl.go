@@ -15,7 +15,7 @@ type renderer struct {
 	camPosition numg.V3
 	nearPlane, aspectRatio,fov float64
 	currentColor color
-
+	envMap *texture
 }
 
 const MAX_RECURSION_DEPTH = 2
@@ -57,6 +57,10 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 	r.currentColor = color{1,1,1}
 	// Return the renderer
 	return &r, nil
+}
+
+func(r *renderer) SetEnvMap(envMap *texture) {
+	r.envMap = envMap
 }
 
 // Change current color
@@ -256,6 +260,8 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{mate
 			finalColor.b = math.Min(1, finalColor.b)
 		 
 		return &(finalColor)
+	} else if (r.envMap != nil) {
+		return r.envMap.GetEnvColor(direction)
 	}
 	return nil
 }

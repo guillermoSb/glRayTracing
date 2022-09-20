@@ -3,6 +3,8 @@ package gl
 import (
 	"encoding/binary"
 	"errors"
+	"guillermoSb/glRayTracing/numg"
+	"math"
 	"os"
 )
 
@@ -77,6 +79,12 @@ func (t *texture) GetColor(u,v float32) (*color, error) {
 		return &t.pixels[int((v) * float32(t.height))][int((u) * float32(t.width))], nil
 	} 
 	return nil, errors.New("Cannot get the color from texture.")
+}
+
+func (t *texture) GetEnvColor(dir numg.V3) *color {
+	x := ((math.Atan2(dir.Z, dir.X)/(2*math.Pi)) + 0.5) * float64(t.width)
+	y := ((math.Acos(-dir.Y)/math.Pi) * float64(t.height))
+	return &t.pixels[int(y)][int(x)]
 }
 
 // Get the texture pixels
