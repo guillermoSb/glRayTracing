@@ -6,16 +6,17 @@ import (
 	"math"
 	"os"
 )
+
 type renderer struct {
-	width, height uint
-	pixels [][]color
-	scene []figure
-	lights []light
-	background texture
-	camPosition numg.V3
-	nearPlane, aspectRatio,fov float64
-	currentColor color
-	envMap *texture
+	width, height               uint
+	pixels                      [][]color
+	scene                       []figure
+	lights                      []light
+	background                  texture
+	camPosition                 numg.V3
+	nearPlane, aspectRatio, fov float64
+	currentColor                color
+	envMap                      *texture
 }
 
 const MAX_RECURSION_DEPTH = 2
@@ -24,22 +25,22 @@ const MAX_RECURSION_DEPTH = 2
 // - width: width of the renderer
 // - height: height of the renderer
 // - background: name of the background
-func NewRenderer(width, height uint, background string)(*renderer, error) {
-	r := renderer{width: width, height: height, pixels: [][]color{}} 
+func NewRenderer(width, height uint, background string) (*renderer, error) {
+	r := renderer{width: width, height: height, pixels: [][]color{}}
 	// Create the pixel array
 	for x := 0; x < int(width); x++ {
 		col := []color{}
 		for y := 0; y < int(height); y++ {
-			clearClr, _ := NewColor(0.6,0.6,0.6)	// Use black as the background color
-			col = append(col, *clearClr)	// append the color to the column
+			clearClr, _ := NewColor(0.6, 0.6, 0.6) // Use black as the background color
+			col = append(col, *clearClr)           // append the color to the column
 		}
-		r.pixels = append(r.pixels, col)	// append the column to the pixels
+		r.pixels = append(r.pixels, col) // append the column to the pixels
 	}
 	// Create an empty array of figures
 	r.scene = []figure{}
 	// Camera position
-	r.camPosition = numg.V3{X: 0,Y: 0,Z: 0}
-	// NearPlane 
+	r.camPosition = numg.V3{X: 0, Y: 0, Z: 0}
+	// NearPlane
 	r.nearPlane = 0.1
 	// AspectRatio
 	r.aspectRatio = float64(width) / float64(height)
@@ -54,17 +55,17 @@ func NewRenderer(width, height uint, background string)(*renderer, error) {
 		r.background = *t
 	}
 	// Default color is white
-	r.currentColor = color{1,1,1}
+	r.currentColor = color{1, 1, 1}
 	// Return the renderer
 	return &r, nil
 }
 
-func(r *renderer) SetEnvMap(envMap *texture) {
+func (r *renderer) SetEnvMap(envMap *texture) {
 	r.envMap = envMap
 }
 
 // Change current color
-func(r *renderer) ChangeColor(clr color) {
+func (r *renderer) ChangeColor(clr color) {
 	r.currentColor = clr
 }
 
@@ -86,42 +87,42 @@ func (r *renderer) AddLightToScene(light light) {
 func (r *renderer) GLDrawBackground() {
 	for x := 0; x < int(r.width); x++ {
 		for y := 0; y < int(r.height); y++ {
-			ux := (float32(x)/float32(r.width))	// value for x 0 -1
-			uy := (float32(y)/float32(r.height))	// value for y 0 -1
-			texX := int(ux * float32(r.background.width))	
+			ux := (float32(x) / float32(r.width))  // value for x 0 -1
+			uy := (float32(y) / float32(r.height)) // value for y 0 -1
+			texX := int(ux * float32(r.background.width))
 			texY := int(uy * float32(r.background.height))
-			r.GLPoint(numg.V2{X:float64(x),Y:float64(y)}, r.background.pixels[texY][texX])
-		}	
+			r.GLPoint(numg.V2{X: float64(x), Y: float64(y)}, r.background.pixels[texY][texX])
+		}
 	}
 }
 
 // Does the render of the scene with Ray Tracing
 func (r *renderer) GLRender() {
 	// Proyecion
-	t := math.Tan((r.fov * math.Pi)/360) * r.nearPlane
+	t := math.Tan((r.fov*math.Pi)/360) * r.nearPlane
 	ri := t * r.aspectRatio
 	for x := 0; x < int(r.width); x++ {
 		for y := 0; y < int(r.height); y++ {
 			// Create the NDC Coordinates
-			px := ((float64(x)/float64(r.width)) * 2) - 1.0
-			py := ((float64(y)/float64(r.height)) * 2) - 1.0
-			
+			px := ((float64(x) / float64(r.width)) * 2) - 1.0
+			py := ((float64(y) / float64(r.height)) * 2) - 1.0
+
 			// ? Por que se multiplica
 			px *= ri
 			py *= t
 			// Direction of the ray normalized
 			// ? Por que la direccion tiene en z - el nearPlane
-			direction := numg.NormalizeV3(numg.V3{X: px, Y: py,Z: -r.nearPlane})
+			direction := numg.NormalizeV3(numg.V3{X: px, Y: py, Z: -r.nearPlane})
 			// Cast a ray on that direction
-			rayColor := r.GLCastRay(r.camPosition, direction, nil, 0)	
+			rayColor := r.GLCastRay(r.camPosition, direction, nil, 0)
 			if rayColor != nil {
-				r.GLPoint(numg.V2{X: float64(x),Y: float64(y)}, *rayColor)
+				r.GLPoint(numg.V2{X: float64(x), Y: float64(y)}, *rayColor)
 			}
 		}
 	}
 }
 
-func (r *renderer) sceneIntersect(origin, direction numg.V3, sceneObject *struct{material}) *intersect {
+func (r *renderer) sceneIntersect(origin, direction numg.V3, sceneObject *struct{ material }) *intersect {
 	var intersect *intersect = nil
 	depth := math.Inf(1)
 	for _, object := range r.scene {
@@ -135,132 +136,92 @@ func (r *renderer) sceneIntersect(origin, direction numg.V3, sceneObject *struct
 					intersect = hit
 					depth = hit.distance
 				}
-			} 
+			}
 		}
 	}
 	return intersect
 }
 
-func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{material}, recursion int) *color {
-	var intersect *intersect = r.sceneIntersect(origin, direction, sceneObject)
-	if intersect != nil && recursion < MAX_RECURSION_DEPTH {
+func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{ material }, recursion int) *color {
+	var sceneIntersect *intersect = r.sceneIntersect(origin, direction, sceneObject)
+	if sceneIntersect != nil && recursion < MAX_RECURSION_DEPTH {
 		finalColor := Black()
-		objectColor := intersect.obj.material.diffuse
-		if intersect.obj.material.matType == OPAQUE {
+		objectColor := sceneIntersect.obj.material.diffuse
+		if sceneIntersect.obj.material.matType == OPAQUE {
 			for _, light := range r.lights {
+				lightColor := light.getLightColor(r.camPosition, *sceneIntersect)
+				shadowIntensity := 0.0
+				finalColor.r += lightColor.r
+				finalColor.g += lightColor.g
+				finalColor.b += lightColor.b
+				var shadowIntersect *intersect = nil
 				if light.getLightType() == DIR_TYPE {
-					dirLight := numg.MultiplyVectorWithConstant(*light.getDirection(), -1)
-					intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
-					intensity = math.Max(0, intensity)
-					diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
-					// Shadows
-					shadowIntensity := 0.0
-					shadowIntersect := r.sceneIntersect(intersect.point, dirLight, &intersect.obj)
-					if shadowIntersect != nil {
-						shadowIntensity = 1
-					}
-					// Specularity
-				
-					rS := numg.ReflectionVector(dirLight, intersect.normal)
-	
-					viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
-					specIntensity := numg.V3DotProduct(rS, viewDir)
-					specIntensity = math.Max(0, specIntensity)
-					specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
-					specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
-					
-					diffuseColor.r += specColor.r
-					diffuseColor.g += specColor.g
-					diffuseColor.b += specColor.b
-	
-					finalColor.r += diffuseColor.r * light.getIntensity()
-					finalColor.g += diffuseColor.g * light.getIntensity()
-					finalColor.b += diffuseColor.b * light.getIntensity()
-	
-					finalColor.r *= 1 - shadowIntensity
-					finalColor.g *= 1 - shadowIntensity
-					finalColor.b *= 1 - shadowIntensity
-	
-				} else if light.getLightType() == AMBIENT_TYPE {
-					ambientLightColor := light.getColor()
-					ambientLightColor.r = ambientLightColor.r * light.getIntensity()
-					ambientLightColor.g = ambientLightColor.g * light.getIntensity()
-					ambientLightColor.b = ambientLightColor.b * light.getIntensity()
-	
-					finalColor.r += ambientLightColor.r
-					finalColor.g += ambientLightColor.g
-					finalColor.b += ambientLightColor.b
+					shadowIntersect = r.sceneIntersect(sceneIntersect.point, numg.MultiplyVectorWithConstant(*light.getDirection(), -1), &sceneIntersect.obj)
 				} else if light.getLightType() == POINT_TYPE {
-					// Calculate the light direction
-					lightDir := numg.Subtract(*light.getOrigin(), intersect.point)
+					lightDir := numg.Subtract(*light.getOrigin(), sceneIntersect.point)
 					lightDir = numg.NormalizeV3(lightDir)
-					// Calculate the intensity of the light
-					intensity := numg.V3DotProduct(numg.NormalizeV3(intersect.point), lightDir)
-					intensity = math.Max(0, intensity)
-					// Calculate the color
-					diffuseColor, _ := NewColor(light.getColor().r * intensity, light.getColor().g * intensity, light.getColor().b * intensity)
-					// Shadows
-					shadowIntensity := 0.0
-					shadowIntersect := r.sceneIntersect(intersect.point, lightDir, &intersect.obj)
-					if shadowIntersect != nil {
-						shadowIntensity = 1
-					}
-					// Specularity
-				
-					rS := numg.ReflectionVector(lightDir, intersect.normal)
-	
-					viewDir := numg.NormalizeV3(numg.Subtract(r.camPosition, intersect.point))
-					specIntensity := numg.V3DotProduct(rS, viewDir)
-					specIntensity = math.Max(0, specIntensity)
-					specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
-					specColor, _ := NewColor(light.getColor().r * specIntensity, light.getColor().g * specIntensity, light.getColor().b * specIntensity)
-					
-					diffuseColor.r += specColor.r
-					diffuseColor.g += specColor.g
-					diffuseColor.b += specColor.b
-					
-					// Attenuation
-					distanceVector := numg.Subtract(intersect.point, *light.getOrigin())
-					
-					d := math.Abs(distanceVector.Magnitude())
-					a := 1.0	// Constant attenuation
-					b := 1.0	// Linear attenuation
-					c := 0.0	// Quadratic attenuatio
-	
-					attenuation := 1.0 / (a+b*d+c*math.Pow(d,2))
-	
-					finalColor.r += diffuseColor.r * light.getIntensity() * attenuation
-					finalColor.g += diffuseColor.g * light.getIntensity() * attenuation
-					finalColor.b += diffuseColor.b * light.getIntensity() * attenuation
-	
-					finalColor.r *= 1 - shadowIntensity
-					finalColor.g *= 1 - shadowIntensity
-					finalColor.b *= 1 - shadowIntensity
+					shadowIntersect = r.sceneIntersect(sceneIntersect.point, numg.MultiplyVectorWithConstant(lightDir, -1), &sceneIntersect.obj)
 				}
-			}	
-			finalColor.r *= objectColor.r 
+				if shadowIntersect != nil {
+					shadowIntensity = 1
+				}
+				finalColor.r *= 1 - shadowIntensity
+				finalColor.g *= 1 - shadowIntensity
+				finalColor.b *= 1 - shadowIntensity
+			}
+
+			finalColor.r *= objectColor.r
 			finalColor.g *= objectColor.g
 			finalColor.b *= objectColor.b
-			} else if intersect.obj.material.matType == REFLECTIVE {
-				// reflection vector
-				reflection := numg.ReflectionVector(numg.MultiplyVectorWithConstant(direction, -1.0), numg.MultiplyVectorWithConstant(intersect.normal, 1))	
-				reflectColor := r.GLCastRay(intersect.point, reflection, &intersect.obj, recursion + 1)
-				if reflectColor != nil {
-					finalColor.r = reflectColor.r
-					finalColor.g = reflectColor.g
-					finalColor.b = reflectColor.b
-				} else {
-					finalColor = objectColor
-				}
+		} else if sceneIntersect.obj.material.matType == REFLECTIVE {
+			// reflection vector
+			reflection := numg.ReflectionVector(numg.MultiplyVectorWithConstant(direction, -1.0), numg.MultiplyVectorWithConstant(sceneIntersect.normal, 1))
+			reflectColor := r.GLCastRay(sceneIntersect.point, reflection, &sceneIntersect.obj, recursion+1)
+			if reflectColor != nil {
+				finalColor.r = reflectColor.r * objectColor.r
+				finalColor.g = reflectColor.g * objectColor.g
+				finalColor.b = reflectColor.b * objectColor.b
+			} else {
+				finalColor = objectColor
 			}
-		
-	
-			finalColor.r = math.Min(1, finalColor.r)
-			finalColor.g = math.Min(1, finalColor.g)
-			finalColor.b = math.Min(1, finalColor.b)
-		 
+		} else if sceneIntersect.obj.material.matType == TRANSPARENT {
+			// Detect if the ray comes from outside of the object or inside
+			outside := (numg.V3DotProduct(direction, sceneIntersect.normal)) < 0
+			biasVector := numg.MultiplyVectorWithConstant(sceneIntersect.normal, 0.001)
+			reflectionVector := numg.ReflectionVector(direction, sceneIntersect.normal)
+			originVector := sceneIntersect.point
+			if outside {
+				originVector = numg.Add(originVector, biasVector)
+			} else {
+				originVector = numg.Subtract(originVector, biasVector)
+			}
+			reflectColor := r.GLCastRay(originVector, reflectionVector, nil, recursion+1)
+			refractColor := Black()
+			kr := numg.Fresnel(sceneIntersect.normal, direction, sceneIntersect.obj.material.ior)
+			if kr < 1 {
+				refractVector := numg.Refract(sceneIntersect.normal, direction, sceneIntersect.obj.material.ior)
+				refractOrigin := sceneIntersect.point
+				if outside {
+					refractOrigin = numg.Subtract(refractOrigin, biasVector)
+				} else {
+					refractOrigin = numg.Add(refractOrigin, biasVector)
+				}
+				refractColorResult := r.GLCastRay(refractOrigin, refractVector, nil, recursion+1)
+				refractColor.r = refractColorResult.r
+				refractColor.g = refractColorResult.g
+				refractColor.b = refractColorResult.b
+			}
+			finalColor.r += (reflectColor.r*kr + refractColor.r*(1-kr))
+			finalColor.g += (reflectColor.g*kr + refractColor.g*(1-kr))
+			finalColor.b += (reflectColor.b*kr + refractColor.b*(1-kr))
+		}
+
+		finalColor.r = math.Min(1, finalColor.r)
+		finalColor.g = math.Min(1, finalColor.g)
+		finalColor.b = math.Min(1, finalColor.b)
+
 		return &(finalColor)
-	} else if (r.envMap != nil) {
+	} else if r.envMap != nil {
 		return r.envMap.GetEnvColor(direction)
 	}
 	return nil
@@ -269,12 +230,12 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{mate
 // Draw a point on the screen
 func (r *renderer) GLPoint(point numg.V2, clr color) {
 	// Check tht the point is within the screen bounds
-	if int(point.X) < 0 || 
-	int(point.X) >= int(r.width) || 
-	int(point.Y) < 0 || 
-	int(point.Y) >= int(r.height) {
+	if int(point.X) < 0 ||
+		int(point.X) >= int(r.width) ||
+		int(point.Y) < 0 ||
+		int(point.Y) >= int(r.height) {
 		return
-	} 
+	}
 	// Set the color on the pixel
 	r.pixels[int(point.X)][int(point.Y)] = clr
 }
@@ -290,24 +251,24 @@ func (r *renderer) GlFinish(fileName string) {
 		log.Fatal(err)
 	}
 	// Example, writing 5 x 5 image
-	defer f.Close()	// Close the file when the process is done
+	defer f.Close() // Close the file when the process is done
 	f.Write([]byte("B"))
 	f.Write([]byte("M"))
-	f.Write(numg.Dword(uint32(r.width) * uint32(r.height * 3)))	// File Size
-	f.Write([]byte{0, 0})	// Reserved
-	f.Write([]byte{0, 0})	// Reserved
-	f.Write([]byte{54, 0, 0, 0 })	// ?
-	f.Write([]byte{40, 0, 0, 0})	// Header Size
-	f.Write(numg.Dword(uint32(r.width)))		// Width
-	f.Write(numg.Dword(uint32(r.height)))		// Height
-	f.Write([]byte{1, 0})	// Plane
-	f.Write([]byte{24, 0})	// BPP
-	f.Write([]byte{0,0,0,0})
-	f.Write([]byte{0,0,0,0})
-	f.Write([]byte{0,0,0,0})
-	f.Write([]byte{0,0,0,0})
-	f.Write([]byte{0,0,0,0})
-	f.Write([]byte{0,0,0,0})
+	f.Write(numg.Dword(uint32(r.width) * uint32(r.height*3))) // File Size
+	f.Write([]byte{0, 0})                                     // Reserved
+	f.Write([]byte{0, 0})                                     // Reserved
+	f.Write([]byte{54, 0, 0, 0})                              // ?
+	f.Write([]byte{40, 0, 0, 0})                              // Header Size
+	f.Write(numg.Dword(uint32(r.width)))                      // Width
+	f.Write(numg.Dword(uint32(r.height)))                     // Height
+	f.Write([]byte{1, 0})                                     // Plane
+	f.Write([]byte{24, 0})                                    // BPP
+	f.Write([]byte{0, 0, 0, 0})
+	f.Write([]byte{0, 0, 0, 0})
+	f.Write([]byte{0, 0, 0, 0})
+	f.Write([]byte{0, 0, 0, 0})
+	f.Write([]byte{0, 0, 0, 0})
+	f.Write([]byte{0, 0, 0, 0})
 	// Pixel Data
 	for i := 0; i < int(r.height); i++ {
 		for j := 0; j < int(r.width); j++ {
