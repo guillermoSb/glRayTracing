@@ -51,35 +51,36 @@ func (l *dirLight) getOrigin() *numg.V3 {
 	return nil
 }
 
-func (light *dirLight) getLightColor(camPosition numg.V3, intersect intersect) *color {
-	dirLight := numg.MultiplyVectorWithConstant(*light.getDirection(), -1)
-	intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
-	intensity = math.Max(0, intensity)
-	diffuseColor, _ := NewColor(light.getColor().r*intensity, light.getColor().g*intensity, light.getColor().b*intensity)
-
-	// Specularity
-
+func getSpecColor(dirLight, camPosition numg.V3, intersect intersect, lightColor color) color {
 	rS := numg.ReflectionVector(dirLight, intersect.normal)
 
 	viewDir := numg.NormalizeV3(numg.Subtract(camPosition, intersect.point))
 	specIntensity := numg.V3DotProduct(rS, viewDir)
 	specIntensity = math.Max(0, specIntensity)
 	specIntensity = math.Pow(specIntensity, intersect.obj.material.specularity)
-	specColor, _ := NewColor(light.getColor().r*specIntensity, light.getColor().g*specIntensity, light.getColor().b*specIntensity)
+	specColor, _ := NewColor(lightColor.r*specIntensity, lightColor.g*specIntensity, lightColor.b*specIntensity)
 
+	diffuseColor := Black()
 	diffuseColor.r += specColor.r
 	diffuseColor.g += specColor.g
 	diffuseColor.b += specColor.b
+	return diffuseColor
+}
 
+func (light *dirLight) getLightColor(camPosition numg.V3, intersect intersect) *color {
+	dirLight := numg.MultiplyVectorWithConstant(*light.getDirection(), -1)
+	intensity := numg.V3DotProduct(dirLight, numg.NormalizeV3(intersect.normal))
+	intensity = math.Max(0, intensity)
+	diffuseColor, _ := NewColor(light.getColor().r*intensity, light.getColor().g*intensity, light.getColor().b*intensity)
+	// Specularity
+	specColor := getSpecColor(dirLight, camPosition, intersect, light.getColor())
+	diffuseColor.r += specColor.r
+	diffuseColor.g += specColor.g
+	diffuseColor.b += specColor.b
 	lightColor := Black()
-
 	lightColor.r += diffuseColor.r * light.getIntensity()
 	lightColor.g += diffuseColor.g * light.getIntensity()
 	lightColor.b += diffuseColor.b * light.getIntensity()
-
-	// lightColor.r *= 1 - shadowIntensity
-	// lightColor.g *= 1 - shadowIntensity
-	// lightColor.b *= 1 - shadowIntensity
 	return &lightColor
 }
 

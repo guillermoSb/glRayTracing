@@ -9,11 +9,10 @@ import (
 )
 
 type texture struct {
-	name string
+	name          string
 	width, height uint
-	pixels [][]color
+	pixels        [][]color
 }
-
 
 func NewTexture(fileName string) (*texture, error) {
 	// t := texture{width: width, height: height, pixels: [][]color{}}
@@ -22,11 +21,11 @@ func NewTexture(fileName string) (*texture, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()	// Close the file when the process is done
+	defer f.Close() // Close the file when the process is done
 	headerSizeBits := make([]byte, 4)
-  f.ReadAt(headerSizeBits, 10)
+	f.ReadAt(headerSizeBits, 10)
 	headerSize := fromByteToInt(headerSizeBits)
-	
+
 	widthBits := make([]byte, 4)
 	f.ReadAt(widthBits, 18)
 	width := fromByteToInt(widthBits)
@@ -41,9 +40,9 @@ func NewTexture(fileName string) (*texture, error) {
 	for x := 0; x < int(height); x++ {
 		col := []color{}
 		for y := 0; y < int(width); y++ {
-			bByte := make([]byte,1)
-			gByte := make([]byte,1)
-			rByte := make([]byte,1)
+			bByte := make([]byte, 1)
+			gByte := make([]byte, 1)
+			rByte := make([]byte, 1)
 			f.Read(bByte)
 			f.Read(gByte)
 			f.Read(rByte)
@@ -51,9 +50,9 @@ func NewTexture(fileName string) (*texture, error) {
 			r := (float64(rByte[0]) / 255.0)
 			g := (float64(gByte[0]) / 255.0)
 			b := (float64(bByte[0]) / 255.0)
-			clr, errC := NewColor(r,g,b)
+			clr, errC := NewColor(r, g, b)
 			if errC != nil {
-				
+
 			} else {
 				col = append(col, *clr)
 			}
@@ -61,7 +60,7 @@ func NewTexture(fileName string) (*texture, error) {
 		pixels = append(pixels, col)
 	}
 	texture := texture{}
-  texture.width = uint(width)
+	texture.width = uint(width)
 	texture.height = uint(height)
 	texture.pixels = pixels
 	texture.name = fileName
@@ -72,18 +71,18 @@ func fromByteToInt(bytes []byte) uint32 {
 	return binary.LittleEndian.Uint32(bytes)
 }
 
+func (t *texture) GetColor(u, v float32) (*color, error) {
 
-func (t *texture) GetColor(u,v float32) (*color, error) {
-
-	if 0 <= u && u <= 1 && 0 <= v && v <= 1{
-		return &t.pixels[int((v) * float32(t.height))][int((u) * float32(t.width))], nil
-	} 
+	if 0 <= u && u <= 1 && 0 <= v && v <= 1 {
+		return &t.pixels[int((v)*float32(t.height))][int((u)*float32(t.width))], nil
+	}
 	return nil, errors.New("Cannot get the color from texture.")
 }
 
 func (t *texture) GetEnvColor(dir numg.V3) *color {
-	x := ((math.Atan2(dir.Z, dir.X)/(2*math.Pi)) + 0.5) * float64(t.width)
-	y := ((math.Acos(-dir.Y)/math.Pi) * float64(t.height))
+	dir = numg.NormalizeV3(dir)
+	x := ((math.Atan2(dir.Z, dir.X) / (2 * math.Pi)) + 0.5) * float64(t.width)
+	y := ((math.Acos(-dir.Y) / math.Pi) * float64(t.height))
 	return &t.pixels[int(y)][int(x)]
 }
 

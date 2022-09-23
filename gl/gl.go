@@ -19,7 +19,7 @@ type renderer struct {
 	envMap                      *texture
 }
 
-const MAX_RECURSION_DEPTH = 2
+const MAX_RECURSION_DEPTH = 3
 
 // Creates a new renderer and sends the reference
 // - width: width of the renderer
@@ -149,6 +149,13 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{ mat
 		objectColor := sceneIntersect.obj.material.diffuse
 		if sceneIntersect.obj.material.matType == OPAQUE {
 			for _, light := range r.lights {
+				if sceneIntersect.obj.material.normalMap != nil {
+					mapColor := sceneIntersect.obj.material.normalMap.GetEnvColor(direction)
+					sceneIntersect.normal.X = mapColor.r - 0.5
+					sceneIntersect.normal.Y = mapColor.g - 0.5
+					sceneIntersect.normal.Z = mapColor.b - 0.5
+					sceneIntersect.normal = numg.NormalizeV3(sceneIntersect.normal)
+				}
 				lightColor := light.getLightColor(r.camPosition, *sceneIntersect)
 				shadowIntensity := 0.0
 				finalColor.r += lightColor.r
@@ -170,9 +177,6 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{ mat
 				finalColor.b *= 1 - shadowIntensity
 			}
 
-			finalColor.r *= objectColor.r
-			finalColor.g *= objectColor.g
-			finalColor.b *= objectColor.b
 		} else if sceneIntersect.obj.material.matType == REFLECTIVE {
 			// reflection vector
 			reflection := numg.ReflectionVector(numg.MultiplyVectorWithConstant(direction, -1.0), numg.MultiplyVectorWithConstant(sceneIntersect.normal, 1))
@@ -185,31 +189,25 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{ mat
 				finalColor = objectColor
 			}
 			for _, light := range r.lights {
-				lightColor := light.getLightColor(r.camPosition, *sceneIntersect)
-				shadowIntensity := 0.0
-				finalColor.r += lightColor.r
-				finalColor.g += lightColor.g
-				finalColor.b += lightColor.b
-				var shadowIntersect *intersect = nil
 				if light.getLightType() == DIR_TYPE {
-					shadowIntersect = r.sceneIntersect(sceneIntersect.point, numg.MultiplyVectorWithConstant(*light.getDirection(), -1), &sceneIntersect.obj)
+					specColor := getSpecColor(numg.MultiplyVectorWithConstant(*light.getDirection(), -1), r.camPosition, *sceneIntersect, light.getColor())
+					finalColor.r += specColor.r
+					finalColor.g += specColor.g
+					finalColor.b += specColor.b
 				} else if light.getLightType() == POINT_TYPE {
 					lightDir := numg.Subtract(*light.getOrigin(), sceneIntersect.point)
 					lightDir = numg.NormalizeV3(lightDir)
-					shadowIntersect = r.sceneIntersect(sceneIntersect.point, numg.MultiplyVectorWithConstant(lightDir, -1), &sceneIntersect.obj)
+					specColor := getSpecColor(numg.MultiplyVectorWithConstant(lightDir, -1), r.camPosition, *sceneIntersect, light.getColor())
+					finalColor.r += specColor.r
+					finalColor.g += specColor.g
+					finalColor.b += specColor.b
 				}
-				if shadowIntersect != nil {
-					shadowIntensity = 1
-				}
-				finalColor.r *= 1 - shadowIntensity
-				finalColor.g *= 1 - shadowIntensity
-				finalColor.b *= 1 - shadowIntensity
 			}
 		} else if sceneIntersect.obj.material.matType == TRANSPARENT {
 			// Detect if the ray comes from outside of the object or inside
 			outside := (numg.V3DotProduct(direction, sceneIntersect.normal)) < 0
 			biasVector := numg.MultiplyVectorWithConstant(sceneIntersect.normal, 0.001)
-			reflectionVector := numg.ReflectionVector(direction, sceneIntersect.normal)
+			reflectionVector := numg.ReflectionVector(numg.MultiplyVectorWithConstant(direction, -1), sceneIntersect.normal)
 			originVector := sceneIntersect.point
 			if outside {
 				originVector = numg.Add(originVector, biasVector)
@@ -235,8 +233,29 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{ mat
 			finalColor.r += (reflectColor.r*kr + refractColor.r*(1-kr))
 			finalColor.g += (reflectColor.g*kr + refractColor.g*(1-kr))
 			finalColor.b += (reflectColor.b*kr + refractColor.b*(1-kr))
+
+			// Specular color
+			for _, light := range r.lights {
+				if light.getLightType() == DIR_TYPE {
+					specColor := getSpecColor(numg.MultiplyVectorWithConstant(*light.getDirection(), -1), r.camPosition, *sceneIntersect, light.getColor())
+					finalColor.r += specColor.r
+					finalColor.g += specColor.g
+					finalColor.b += specColor.b
+				} else if light.getLightType() == POINT_TYPE {
+					lightDir := numg.Subtract(*light.getOrigin(), sceneIntersect.point)
+					lightDir = numg.NormalizeV3(lightDir)
+					specColor := getSpecColor(numg.MultiplyVectorWithConstant(lightDir, -1), r.camPosition, *sceneIntersect, light.getColor())
+					finalColor.r += specColor.r
+					finalColor.g += specColor.g
+					finalColor.b += specColor.b
+				}
+			}
+
 		}
 
+		finalColor.r *= objectColor.r
+		finalColor.g *= objectColor.g
+		finalColor.b *= objectColor.b
 		finalColor.r = math.Min(1, finalColor.r)
 		finalColor.g = math.Min(1, finalColor.g)
 		finalColor.b = math.Min(1, finalColor.b)
