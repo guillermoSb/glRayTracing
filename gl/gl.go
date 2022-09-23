@@ -184,6 +184,27 @@ func (r *renderer) GLCastRay(origin, direction numg.V3, sceneObject *struct{ mat
 			} else {
 				finalColor = objectColor
 			}
+			for _, light := range r.lights {
+				lightColor := light.getLightColor(r.camPosition, *sceneIntersect)
+				shadowIntensity := 0.0
+				finalColor.r += lightColor.r
+				finalColor.g += lightColor.g
+				finalColor.b += lightColor.b
+				var shadowIntersect *intersect = nil
+				if light.getLightType() == DIR_TYPE {
+					shadowIntersect = r.sceneIntersect(sceneIntersect.point, numg.MultiplyVectorWithConstant(*light.getDirection(), -1), &sceneIntersect.obj)
+				} else if light.getLightType() == POINT_TYPE {
+					lightDir := numg.Subtract(*light.getOrigin(), sceneIntersect.point)
+					lightDir = numg.NormalizeV3(lightDir)
+					shadowIntersect = r.sceneIntersect(sceneIntersect.point, numg.MultiplyVectorWithConstant(lightDir, -1), &sceneIntersect.obj)
+				}
+				if shadowIntersect != nil {
+					shadowIntensity = 1
+				}
+				finalColor.r *= 1 - shadowIntensity
+				finalColor.g *= 1 - shadowIntensity
+				finalColor.b *= 1 - shadowIntensity
+			}
 		} else if sceneIntersect.obj.material.matType == TRANSPARENT {
 			// Detect if the ray comes from outside of the object or inside
 			outside := (numg.V3DotProduct(direction, sceneIntersect.normal)) < 0
