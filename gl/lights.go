@@ -186,7 +186,7 @@ func (light *pointLight) getLightColor(camPosition numg.V3, intersect intersect)
 	d := math.Abs(distanceVector.Magnitude())
 	a := 1.0 // Constant attenuation
 	b := 1.0 // Linear attenuation
-	c := 0.0 // Quadratic attenuatio
+	c := 0.2 // Quadratic attenuatio
 
 	attenuation := 1.0 / (a + b*d + c*math.Pow(d, 2))
 	lightColor := Black()
