@@ -39,7 +39,7 @@ func NewRenderer(width, height uint, background string) (*renderer, error) {
 	// Create an empty array of figures
 	r.scene = []figure{}
 	// Camera position
-	r.camPosition = numg.V3{X: 0, Y: 0, Z: 0}
+	r.camPosition = numg.V3{X: 0, Y: 0, Z: 10}
 	// NearPlane
 	r.nearPlane = 0.1
 	// AspectRatio

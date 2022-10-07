@@ -1,8 +1,11 @@
 package numg
 
 import (
+	"errors"
 	"math"
 )
+
+type M [][]float32
 
 // Two dimensional vector
 // - X: x coordinate value
@@ -119,4 +122,57 @@ func ReflectionVector(D, N V3) V3 {
 	reflection = Subtract(reflection, D)
 	reflection = NormalizeV3(reflection)
 	return reflection
+}
+
+// Create an identity matrix of n size
+func Identity(n int) (M, error) {
+	if n <= 0 {
+		return nil, errors.New("Invalid matrix size")
+	}
+	r := M{}
+	for i := 0; i < n; i++ {
+		row := []float32{}
+		for j := 0; j < n; j++ {
+			if i == j {
+				row = append(row, 1)
+			} else {
+				row = append(row, 0)
+			}
+		}
+		r = append(r, row)
+	}
+
+	return r, nil
+}
+
+// Multiplies to matrices a and b
+// Returns a new matrix c
+func MultiplyMatrices(a, b M) (M, error) {
+	// Cannot add matrices that are empty
+	if len(a) == 0 || len(b) == 0 {
+		return nil, errors.New("invalid size")
+	}
+	// Size of matrices
+	m := len(a)    // rows for matrix a
+	n := len(a[0]) // number of columns for matrix a
+	r := len(b[0]) // number of columns for mtrix b
+	c := M{}       // Result matrix
+	// Validate that can make the operation
+	if m != len(b) {
+		return nil, errors.New("invalid size")
+	}
+	// Start filling the result matrix
+	for i := 0; i < m; i++ {
+		row := []float32{}
+		for j := 0; j < r; j++ {
+			entry := float32(0)
+			// cij = SUM(aik bkj)
+			for k := 0; k < n; k++ {
+				entry += a[i][k] * b[k][j] // Calculate the dot product
+			}
+			row = append(row, entry)
+		}
+		c = append(c, row) // Append the row to the result
+	}
+	return c, nil
 }
