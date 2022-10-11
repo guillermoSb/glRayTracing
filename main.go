@@ -12,10 +12,10 @@ func main() {
 	r, _ := gl.NewRenderer(1024, 1024, "")
 	// r.GLDrawBackground()
 	// Env map
-	envMap, _ := gl.NewTexture("beach.bmp")
+	envMap, _ := gl.NewTexture("nebula.bmp")
 	r.SetEnvMap(envMap)
 
-	brick := gl.NewMaterial(gl.CreateColor(1, 0, 0), 20, gl.REFLECTIVE, 1.5, nil)
+	brick := gl.NewMaterial(gl.CreateColor(1, 1, 0), 20, gl.OPAQUE, 1.1, nil)
 
 	torus := gl.NewTorus(1, 2, *brick)
 	// sphere := gl.NewSphere(numg.V3{0, 0, -2}, 0.5, *brick)
